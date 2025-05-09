@@ -9,6 +9,7 @@ GRID_ROWS = 6
 GRID_COLS = 5
 ANIM_DELAY = 150 
 MIN_ZIPF = 3.0
+WORDS_SAMPLE = 100_000
 
 #--Game-----------------------------------------------------------------------
 class WordleGUI(tk.Tk):
@@ -23,11 +24,20 @@ class WordleGUI(tk.Tk):
 
     def load_words(self):
         """
-        Load and return a list of five-letter alphabetical English words.
+        Return a list **and** a set of 5-letter words that all satisfy the
+        *same* rules you’ll use for validating guesses.
         """
-        top_words = top_n_list("en", 100_000)
-        return [w for w in top_words if len(w) == 5 and w.isalpha()]
+        top_words = top_n_list("en", WORDS_SAMPLE)
 
+        words = [
+            w.lower() for w in top_words
+            if len(w) == 5
+            and w.isalpha()
+            and zipf_frequency(w, "en") >= MIN_ZIPF 
+        ]
+        self.word_set = set(words)
+        return words
+    
     def _create_widgets(self):
         """
         Set up the GUI elements: title, grid canvas, entry box, control buttons, and message label.
@@ -108,15 +118,12 @@ class WordleGUI(tk.Tk):
         """
         guess = self.entry.get().lower()
         if len(guess) != GRID_COLS:
-            self._reject_guess("Enter exactly 5 letters")
-            return
+            self._reject_guess("Enter exactly 5 letters"); return
         if not guess.isalpha():
-            self._reject_guess("Letters only, please")
-            return
+            self._reject_guess("Letters only, please"); return
         # check if real word by zipf frequency and presence in word list
-        if guess not in self.words or zipf_frequency(guess, "en") < MIN_ZIPF:
-            self._reject_guess("Not a valid word")
-            return
+        if guess not in self.word_set:
+            self._reject_guess("Not a valid word"); return
 
         colors = self._feedback(guess)
         for i, col in enumerate(colors):
